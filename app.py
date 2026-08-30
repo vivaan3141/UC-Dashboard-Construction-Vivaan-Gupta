@@ -9,7 +9,27 @@ st.set_page_config(
     page_icon="🎓",
     layout="wide"
 )
+with st.expander("ℹ️ Click here to understand the Research Question & Metrics"):
+    st.markdown("""
+    ### 🎯 Research Question Breakdown
+    > *"In Fall 2025, how significantly do 25th percentile admit GPA thresholds and admit rate penalties vary for Computer Science across all 9 UC undergraduate campuses compared to overall campus averages?"*
 
+    ---
+
+    #### 1. What is the Computer Science "Admit Rate Penalty"?
+    * **Campus Overall Admit Rate:** The baseline percentage of all applicants admitted across all majors combined at that UC.
+    * **CS Admit Rate:** The percentage of applicants admitted specifically to the Computer Science program.
+    * **The Penalty ($\Delta$):** $\text{Overall Admit Rate} - \text{CS Admit Rate}$. 
+      * A **large positive penalty** means applying to CS makes acceptance much harder than the campus average.
+      * A **low/zero penalty** means CS selectivity is close to the general campus baseline.
+
+    #### 2. What is the 25th Percentile GPA Floor?
+    * If you lined up 100 admitted CS students from lowest to highest GPA, the **25th Percentile** is student #25.
+    * **75% of admitted CS students had a GPA higher than this number.** It represents the practical minimum academic floor for competitive consideration.
+
+    #### 3. What is GPA Compression?
+    * When the 25th percentile GPA is near the upper limit of high school GPAs (~4.20+), the spread between the 25th and 75th percentiles (IQR) shrinks to almost zero. This means near-perfect grades become the baseline requirement for applicants.
+    """)
 # Gemini API Integration
 gemini_available = False
 try:
