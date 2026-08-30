@@ -258,122 +258,82 @@ with tab4:
     fig_heat.update_layout(height=550)
     st.plotly_chart(fig_heat, use_container_width=True)
 
-with tab5:
-    st.subheader("🤖 Dynamic Admissions Report Builder & AI Synthesizer")
-    st.caption("Powered by official Fall 2025 UC Disciplinary Data & `gemini-3.6-flash`")
+import json
 
-    # --- 1. Customization Controls ---
-    st.markdown("#### ⚙️ Configure Your Custom Report")
+with tab5:
+    st.subheader("🤖 Dynamic AI Report & Visual Chart Generator")
+    st.caption("Powered by official Fall 2025 UC Admissions Data & `gemini-3.6-flash`")
+
+    st.markdown("#### ⚙️ Configure Your Custom Analysis")
     
     rep_col1, rep_col2 = st.columns([1, 1])
     
     with rep_col1:
-        # User-selected campuses for the report
         available_campuses = sorted(cs_summary['campus'].unique())
         report_campuses = st.multiselect(
-            "1. Select Campuses to Include in Dossier:",
+            "1. Select Campuses to Include:",
             available_campuses,
-            default=available_campuses  # Default to all 9
+            default=available_campuses
         )
         
     with rep_col2:
-        # Focus dimension
         report_theme = st.selectbox(
-            "2. Primary Focus Dimension:",
+            "2. Select Analytical Focus:",
             [
-                "Comprehensive (Admit Penalties + GPA Saturation)",
-                "Admission Penalty & Baseline Disparity Focus",
-                "25th Percentile GPA Floor & Quartile Compression Focus"
+                "Comprehensive Disciplinary Gap Analysis",
+                "Admission Penalty & Selectivity Barrier",
+                "25th Percentile GPA Floor & Saturation Analysis"
             ]
         )
 
     custom_inquiry = st.text_input(
-        "3. Specific Inquiry / Research Angle (Optional):",
-        placeholder="e.g., How does UC Davis compare directly to UC San Diego in CS selectivity risk?"
+        "3. Custom Analytical Query (Optional):",
+        placeholder="e.g., Which campuses pose the highest admission risk for applicants with GPAs under 4.10?"
     )
 
-    # Filter data dynamically to the user's customized selection
     custom_df = cs_summary[cs_summary['campus'].isin(report_campuses)].copy()
     valid_custom_df = custom_df.dropna(subset=['cs_admit_rate']).sort_values('cs_penalty', ascending=False)
 
     st.divider()
 
-    # --- 2. Dynamic Visual Dossier (Grounded Charts) ---
-    st.markdown("#### 📊 Report Visual Analytics (Selected Scope)")
-    
-    v_col1, v_col2 = st.columns(2)
-    
-    with v_col1:
-        # Dynamic Penalty Chart for Selected Campuses
-        fig_rep_pen = px.bar(
-            valid_custom_df,
-            x='campus',
-            y='cs_penalty',
-            text=valid_custom_df['cs_penalty'].apply(lambda x: f"{x:.2%}"),
-            color='cs_penalty',
-            color_continuous_scale='Reds',
-            labels={'cs_penalty': 'CS Admit Penalty', 'campus': 'Campus'},
-            title="Admit Penalty by Selected Campus (Overall Rate - CS Rate)"
-        )
-        fig_rep_pen.update_traces(textposition='outside')
-        fig_rep_pen.update_layout(yaxis_tickformat='.1%')
-        st.plotly_chart(fig_rep_pen, use_container_width=True)
-
-    with v_col2:
-        # Dynamic GPA Floor Chart for Selected Campuses
-        fig_rep_gpa = px.bar(
-            valid_custom_df,
-            x='campus',
-            y='cs_gpa_25th',
-            text=valid_custom_df['cs_gpa_25th'].apply(lambda x: f"{x:.2f}"),
-            color='cs_gpa_25th',
-            color_continuous_scale='Viridis',
-            labels={'cs_gpa_25th': '25th% GPA Floor', 'campus': 'Campus'},
-            title="25th Percentile Admit GPA Floor by Selected Campus"
-        )
-        fig_rep_gpa.update_traces(textposition='outside')
-        fig_rep_gpa.update_layout(yaxis_range=[3.5, 4.4])
-        st.plotly_chart(fig_rep_gpa, use_container_width=True)
-
-    st.divider()
-
-    # --- 3. Grounded Gemini AI Synthesizer ---
-    st.markdown("#### 📝 Executive AI Synthesis")
-    
     if not gemini_available:
-        st.warning("⚠️ `GEMINI_API_KEY` is not detected in Secrets.")
-        st.info("Configure your API key in Streamlit Secrets to enable live grounded synthesis.")
+        st.warning("⚠️ `GEMINI_API_KEY` is not detected in Streamlit Secrets.")
+        st.info("Set up your API key in Streamlit Secrets to enable dynamic AI chart and report generation.")
     else:
-        if st.button("🚀 Compile Grounded Executive Report", type="primary"):
+        if st.button("🚀 Generate AI Report & Dynamic Charts", type="primary"):
             if len(report_campuses) == 0:
                 st.error("Please select at least one campus above to compile the report.")
             else:
-                with st.spinner("Synthesizing metrics from Fall 2025 dataset..."):
+                with st.spinner("Gemini is analyzing dataset and constructing dynamic visualizations..."):
                     try:
-                        # Extract exact structured payload from the user's filtered slice
                         data_slice = valid_custom_df[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th', 'cs_gpa_75th', 'cs_iqr']].to_dict(orient='records')
                         
                         prompt = f"""
-                        You are the Chief Institutional Data Scientist for the University of California System.
-                        Generate a concise, high-impact executive dossier strictly grounded in the official Fall 2025 Freshman Computer Science Admissions data provided below.
+                        You are the Lead Institutional Data Scientist for the University of California.
+                        Analyze the official Fall 2025 Freshman Computer Science admissions dataset slice provided below.
 
-                        ### Target Research Question:
-                        "In Fall 2025, how significantly do 25th percentile admit GPA thresholds and admit rate penalties vary for Computer Science across all 9 UC undergraduate campuses compared to overall campus averages?"
-
-                        ### Filtered Dataset Slice:
+                        Dataset Slice:
                         {data_slice}
 
-                        ### User Configuration:
-                        - Focus Theme: {report_theme}
-                        - Custom Angle / User Query: {custom_inquiry if custom_inquiry else "Standard Disciplinary Variance Analysis"}
+                        Configuration:
+                        - Theme: {report_theme}
+                        - Custom Query: {custom_inquiry if custom_inquiry else "Standard Fall 2025 Disciplinary Assessment"}
 
-                        ### Report Formatting & Constraints:
-                        1. Rely SOLELY on the numerical values present in the data slice above. Do not invent outside numbers.
-                        2. Use clean Markdown headings, bullet points, and small benchmark tables.
-                        3. Structure the output into 3 distinct sections:
-                           - **📌 Executive Data Briefing:** 3 high-level takeaways quantifying specific penalty percentages and GPA floors.
-                           - **📊 Benchmark Metric Table:** A compact Markdown table comparing the selected campuses.
-                           - **🎯 Institutional Takeaway:** 2-3 sentences providing actionable guidance addressing the user's specific inquiry.
+                        Return a strict JSON object with EXACTLY two root keys: "visual_plan" and "report_markdown".
+                        Do NOT include any markdown code fences (like ```json) outside the JSON object.
+
+                        JSON Structure:
+                        {{
+                          "visual_plan": {{
+                            "chart_type": "scatter" | "bar" | "grouped_bar",
+                            "chart_title": "Descriptive, insight-driven chart title",
+                            "x_metric": "campus" | "cs_gpa_25th" | "overall_admit_rate",
+                            "y_metric": "cs_penalty" | "cs_admit_rate" | "cs_gpa_25th",
+                            "color_metric": "cs_penalty" | "cs_gpa_25th" | "campus",
+                            "explanation": "1-2 sentences explaining why this specific visualization best illustrates the user inquiry."
+                          }},
+                          "report_markdown": "A formal, structured Markdown report featuring: 1. Executive Findings with bold percentages/GPAs, 2. A concise comparison table, and 3. Strategic Recommendations addressing the research inquiry."
+                        }}
                         """
 
                         response = client.models.generate_content(
@@ -381,8 +341,66 @@ with tab5:
                             contents=prompt
                         )
 
-                        st.success("✅ Executive Report Compiled")
-                        st.markdown(response.text)
+                        raw_text = response.text.strip()
+                        if raw_text.startswith("```json"):
+                            raw_text = raw_text.replace("```json", "", 1)
+                        if raw_text.startswith("```"):
+                            raw_text = raw_text.replace("```", "", 1)
+                        if raw_text.endswith("```"):
+                            raw_text = raw_text[:-3]
+                        raw_text = raw_text.strip()
+
+                        result = json.loads(raw_text)
+                        vplan = result.get("visual_plan", {})
+                        report_md = result.get("report_markdown", "")
+
+                        # Render Dynamic Visualization instructed by Gemini
+                        st.markdown("### 📊 AI-Designed Dynamic Visualization")
+                        st.caption(f"**AI Chart Rationale:** {vplan.get('explanation', '')}")
+
+                        chart_type = vplan.get('chart_type', 'bar')
+                        x_col = vplan.get('x_metric', 'campus')
+                        y_col = vplan.get('y_metric', 'cs_penalty')
+                        color_col = vplan.get('color_metric', 'cs_penalty')
+                        title = vplan.get('chart_title', 'Admissions Comparison')
+
+                        # Fallback validation to prevent missing column errors
+                        if x_col not in valid_custom_df.columns: x_col = 'campus'
+                        if y_col not in valid_custom_df.columns: y_col = 'cs_penalty'
+                        if color_col not in valid_custom_df.columns: color_col = y_col
+
+                        if chart_type == 'scatter':
+                            fig_ai = px.scatter(
+                                valid_custom_df,
+                                x=x_col,
+                                y=y_col,
+                                color=color_col,
+                                size='cs_penalty',
+                                hover_name='campus',
+                                title=title,
+                                labels={x_col: x_col.replace('_', ' ').title(), y_col: y_col.replace('_', ' ').title()}
+                            )
+                        else:
+                            fig_ai = px.bar(
+                                valid_custom_df,
+                                x=x_col,
+                                y=y_col,
+                                color=color_col,
+                                text=valid_custom_df[y_col].apply(lambda x: f"{x:.2%}" if "rate" in y_col or "penalty" in y_col else f"{x:.2f}"),
+                                title=title,
+                                labels={x_col: x_col.replace('_', ' ').title(), y_col: y_col.replace('_', ' ').title()}
+                            )
+                            fig_ai.update_traces(textposition='outside')
+                            if "rate" in y_col or "penalty" in y_col:
+                                fig_ai.update_layout(yaxis_tickformat='.1%')
+
+                        st.plotly_chart(fig_ai, use_container_width=True)
+
+                        st.divider()
+
+                        # Render Markdown Report
+                        st.markdown("### 📝 Synthesized Institutional Dossier")
+                        st.markdown(report_md)
 
                     except Exception as e:
-                        st.error(f"Error communicating with Gemini API: {e}")
+                        st.error(f"Error compiling AI analysis: {e}")
