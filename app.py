@@ -260,7 +260,7 @@ with tab4:
 
 with tab5:
     st.subheader("🤖 Automated Gemini AI Admissions Briefing")
-    st.caption("Powered by `google-genai` SDK & `gemini-2.5-flash`")
+    st.caption("Powered by `google-genai` SDK & `gemini-3.6-flash`")
 
     if not gemini_available:
         st.warning("⚠️ `GEMINI_API_KEY` is not detected.")
@@ -274,33 +274,45 @@ with tab5:
         """)
         st.info("**Fallback Insight:** In Fall 2025, UC Davis exhibited the steepest CS admit penalty (-24.97%), while UCLA and UC Berkeley established severe GPA floor saturation at or above 4.20.")
     else:
-        # Give judges interactive options to test Gemini's flexibility
+        # Professional, report-focused briefing selections
         briefing_type = st.radio(
-            "Select AI Analysis Focus:",
-            ["Executive Summary for Judges", "Admissions Strategy for Prospective Applicants", "GPA Compression Analysis"],
-            horizontal=True
+            "Select Institutional Report Type:",
+            [
+                "📌 Executive Summary & Disciplinary Disparity Report",
+                "🎯 Applicant Risk Assessment & Strategic Target Portfolio",
+                "📊 GPA Saturation & Quartile Threshold Analysis"
+            ],
+            horizontal=False
         )
 
-        if st.button("🚀 Generate Real-Time Gemini Report", type="primary"):
-            with st.spinner("Gemini is analyzing Fall 2025 UC admissions distributions..."):
+        if st.button("🚀 Generate Formal Admissions Report", type="primary"):
+            with st.spinner("Compiling structured institutional report..."):
                 try:
-                    # Prepare structured data payload for grounded generation
+                    # Clean data dictionary for grounding
                     data_payload = cs_summary[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th', 'cs_gpa_75th']].dropna().to_dict(orient='records')
                     
                     prompt = f"""
-                    You are a senior institutional data analyst for the University of California system.
-                    Dataset: Official Fall 2025 Freshman Computer Science Admissions and Quartile GPAs across UC campuses.
-                    
-                    Structured Data:
+                    You are a Lead Institutional Research Director for the University of California System.
+                    Generate a formal, publication-grade analytical dossier based on official Fall 2025 Freshman Computer Science Admissions data.
+
+                    ### Grounding Dataset (Fall 2025):
                     {data_payload}
-                    
-                    Task Focus: {briefing_type}
-                    
-                    Instructions:
-                    - Directly evaluate the Computer Science Admission Penalty (Overall Admit Rate - CS Admit Rate) and the 25th Percentile GPA floors.
-                    - Highlight specific schools: UC Davis (highest penalty), UCLA/UC Berkeley (extreme selectivity and GPA saturation), and UC Riverside/UC Santa Cruz (access pathways).
-                    - Provide 3 structured, highly concrete takeaways with bold metrics.
-                    - Keep the tone authoritative, concise, and grounded strictly in the provided data.
+
+                    ### Report Directive:
+                    Generate the following formal brief: "{briefing_type}".
+
+                    ### Formatting & Structural Rules:
+                    - DO NOT output a wall of plain text or conversational prose.
+                    - Format as a high-level executive memorandum with distinct visual hierarchy.
+                    - Structure the report using the following mandatory sections:
+                      1. **Executive Key Takeaways** (3 bullet points with bold metrics and specific delta values).
+                      2. **Comparative Findings Table** (A clean Markdown comparison table summarizing tier categories).
+                      3. **Institutional Insights** (2-3 concise paragraphs evaluating penalty magnitude, GPA compression, or applicant risk).
+                      4. **Strategic Recommendations** (Actionable, itemized takeaways for institutional leaders, counselors, and applicants).
+                    - Explicitly cite and contrast key benchmark campuses:
+                      * **UC Davis:** Highlight the highest net admission penalty (+24.97%).
+                      * **UC Berkeley & UCLA:** Highlight sub-10% selectivity and near-total GPA saturation (floors >= 4.20, IQRs <= 0.09).
+                      * **UC Riverside & UC Santa Cruz:** Highlight high-yield access pathways (floors <= 3.96, admit rates >= 79%).
                     """
 
                     response = client.models.generate_content(
@@ -308,7 +320,7 @@ with tab5:
                         contents=prompt
                     )
 
-                    st.success("✅ Gemini Analysis Complete")
+                    st.success("✅ Formal Report Generated Successfully")
                     st.markdown(response.text)
 
                 except Exception as e:
