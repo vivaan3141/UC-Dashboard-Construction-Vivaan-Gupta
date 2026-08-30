@@ -259,26 +259,57 @@ with tab4:
     st.plotly_chart(fig_heat, use_container_width=True)
 
 with tab5:
-    st.subheader("Automated AI Admissions Briefing")
-    if not gemini_available:
-        st.warning("Configure `GEMINI_API_KEY` in Streamlit Secrets to enable real-time Gemini generation.")
-        st.info("Summary: In Fall 2025, UC Davis presents the largest CS admission penalty (24.97%), while UC Berkeley (6.45%) and UCLA (7.32%) are the most selective overall with 25th percentile GPA floors at or above 4.20.")
-    else:
-        if st.button("Generate Systemwide AI Report"):
-            with st.spinner("Synthesizing Fall 2025 selectivity insights..."):
-                sample_data = cs_summary[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th']].dropna().to_dict(orient='records')
-                prompt = f"""
-                You are a senior admissions analyst for the University of California.
-                Analyze the following Fall 2025 Computer Science selectivity and GPA metrics across the UC system:
-                {sample_data}
+    st.subheader("🤖 Automated Gemini AI Admissions Briefing")
+    st.caption("Powered by `google-genai` SDK & `gemini-2.5-flash`")
 
-                Provide 3 concise takeaways addressing:
-                1. Campuses with the steepest CS admission penalties.
-                2. GPA floor compression at selective campuses (UCB, UCLA, UCSD, UCD).
-                3. Access alternatives (UCR, UCSC) for Computer Science applicants.
-                """
-                resp = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
-                st.markdown(resp.text)
+    if not gemini_available:
+        st.warning("⚠️ `GEMINI_API_KEY` is not detected.")
+        st.markdown("""
+        **To enable live AI generation:**
+        1. Open your app settings on [Streamlit Cloud](https://share.streamlit.io).
+        2. Navigate to **Secrets** and add:
+           ```toml
+           GEMINI_API_KEY = "your_google_ai_studio_api_key"
+           ```
+        """)
+        st.info("**Fallback Insight:** In Fall 2025, UC Davis exhibited the steepest CS admit penalty (-24.97%), while UCLA and UC Berkeley established severe GPA floor saturation at or above 4.20.")
+    else:
+        # Give judges interactive options to test Gemini's flexibility
+        briefing_type = st.radio(
+            "Select AI Analysis Focus:",
+            ["Executive Summary for Judges", "Admissions Strategy for Prospective Applicants", "GPA Compression Analysis"],
+            horizontal=True
+        )
+
+        if st.button("🚀 Generate Real-Time Gemini Report", type="primary"):
+            with st.spinner("Gemini is analyzing Fall 2025 UC admissions distributions..."):
+                try:
+                    # Prepare structured data payload for grounded generation
+                    data_payload = cs_summary[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th', 'cs_gpa_75th']].dropna().to_dict(orient='records')
+                    
+                    prompt = f"""
+                    You are a senior institutional data analyst for the University of California system.
+                    Dataset: Official Fall 2025 Freshman Computer Science Admissions and Quartile GPAs across UC campuses.
+                    
+                    Structured Data:
+                    {data_payload}
+                    
+                    Task Focus: {briefing_type}
+                    
+                    Instructions:
+                    - Directly evaluate the Computer Science Admission Penalty (Overall Admit Rate - CS Admit Rate) and the 25th Percentile GPA floors.
+                    - Highlight specific schools: UC Davis (highest penalty), UCLA/UC Berkeley (extreme selectivity and GPA saturation), and UC Riverside/UC Santa Cruz (access pathways).
+                    - Provide 3 structured, highly concrete takeaways with bold metrics.
+                    - Keep the tone authoritative, concise, and grounded strictly in the provided data.
+                    """
+
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt
+                    )
+
+                    st.success("✅ Gemini Analysis Complete")
+                    st.markdown(response.text)
+
+                except Exception as e:
+                    st.error(f"Error communicating with Gemini API: {e}")
