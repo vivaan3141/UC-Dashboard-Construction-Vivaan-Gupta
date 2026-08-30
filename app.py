@@ -123,34 +123,21 @@ kpi4.metric("Campuses Evaluated", "9 of 9 (1 Not Reported)")
 st.divider()
 
 # Primary Visual Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📋 9-Campus Benchmark Table",
     "📉 CS Admit Penalty vs Baseline",
     "🎯 25th Percentile GPA Floors",
     "🗺️ Multi-Major Heatmap",
-    "🤖 Dynamic AI Report & Visuals"
+    "🤖 Dynamic AI Report & Visuals",
+    "💬 Ask Gemini Q&A"
 ])
 
-# TAB 1: Benchmark Table with Interactive Column Filters
+# TAB 1: Benchmark Table (Clean Default View)
 with tab1:
     st.subheader("Fall 2025 Computer Science Selectivity & GPA Benchmark Table")
+    st.caption("Campuses ranked by CS Admission Penalty ($\Delta$)")
     
-    t1_col1, t1_col2 = st.columns([2, 1])
-    with t1_col1:
-        sort_choice = st.selectbox(
-            "Sort Table By:",
-            ["CS Admission Penalty (Highest to Lowest)", "CS Admit Rate (Most Selective First)", "25th% GPA Floor (Highest First)", "Campus Name (A-Z)"]
-        )
-    
-    t_df = cs_summary.copy()
-    if sort_choice == "CS Admission Penalty (Highest to Lowest)":
-        t_df = t_df.sort_values('cs_penalty', ascending=False)
-    elif sort_choice == "CS Admit Rate (Most Selective First)":
-        t_df = t_df.sort_values('cs_admit_rate', ascending=True)
-    elif sort_choice == "25th% GPA Floor (Highest First)":
-        t_df = t_df.sort_values('cs_gpa_25th', ascending=False)
-    else:
-        t_df = t_df.sort_values('campus', ascending=True)
+    t_df = cs_summary.sort_values('cs_penalty', ascending=False).copy()
 
     t_df['overall_admit_rate'] = t_df['overall_admit_rate'].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "N/A")
     t_df['cs_admit_rate'] = t_df['cs_admit_rate'].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "Not Reported")
@@ -177,20 +164,15 @@ with tab1:
         hide_index=True
     )
 
-# TAB 2: Interactive Penalty Analysis
+# TAB 2: Penalty Analysis
 with tab2:
     st.subheader("Direct Comparison: Overall Campus Admit Rate vs. Computer Science Admit Rate")
     
-    # Interactive Controls
-    c_p1, c_p2 = st.columns(2)
-    with c_p1:
-        sort_pen_order = st.radio(
-            "Sort Campuses By:",
-            ["Highest Penalty (Drop) First", "Lowest CS Admit Rate First", "Alphabetical"],
-            horizontal=True
-        )
-    with c_p2:
-        penalty_palette = st.selectbox("Bar Color Palette:", ["Reds", "Bluered", "Sunsetdark", "Turbo"])
+    sort_pen_order = st.radio(
+        "Sort Campuses By:",
+        ["Highest Penalty (Drop) First", "Lowest CS Admit Rate First", "Alphabetical"],
+        horizontal=True
+    )
 
     valid_p_df = cs_summary.dropna(subset=['cs_admit_rate']).copy()
     if sort_pen_order == "Highest Penalty (Drop) First":
@@ -240,7 +222,7 @@ with tab2:
         y='cs_penalty',
         text=valid_p_df['cs_penalty'].apply(lambda x: f"{x:.2%}"),
         color='cs_penalty',
-        color_continuous_scale=penalty_palette,
+        color_continuous_scale='Reds',
         labels={'cs_penalty': 'CS Admission Penalty', 'campus': 'UC Campus'},
         title="Ranked CS Admission Penalty (Drop in Acceptance Rate)"
     )
@@ -281,19 +263,15 @@ with tab3:
         fig_gpa.update_layout(yaxis_range=[3.5, 4.4])
     st.plotly_chart(fig_gpa, use_container_width=True)
 
-# TAB 4: Interactive Heatmap
+# TAB 4: Heatmap
 with tab4:
     st.subheader("Systemwide Selectivity Heatmap: All Disciplines & Campuses")
     
-    h_col1, h_col2 = st.columns(2)
-    with h_col1:
-        selected_disciplines = st.multiselect(
-            "Filter Academic Disciplines to Display:",
-            sorted(df_campuses['discipline'].unique()),
-            default=sorted(df_campuses['discipline'].unique())[:8]
-        )
-    with h_col2:
-        heat_color = st.selectbox("Heatmap Color Scale:", ["Blues_r", "Viridis_r", "Magma_r", "Reds_r"])
+    selected_disciplines = st.multiselect(
+        "Filter Academic Disciplines to Display:",
+        sorted(df_campuses['discipline'].unique()),
+        default=sorted(df_campuses['discipline'].unique())[:8]
+    )
 
     if len(selected_disciplines) > 0:
         filtered_heat_df = df_campuses[df_campuses['discipline'].isin(selected_disciplines)]
@@ -304,7 +282,7 @@ with tab4:
             labels=dict(x="UC Campus", y="Academic Discipline", color="Admit Rate"),
             x=pivot_rates.columns,
             y=pivot_rates.index,
-            color_continuous_scale=heat_color,
+            color_continuous_scale='Blues_r',
             aspect="auto",
             text_auto=".1%"
         )
@@ -452,3 +430,61 @@ with tab5:
 
                     except Exception as e:
                         st.error(f"Error compiling AI analysis: {e}")
+
+# TAB 6: Interactive Gemini Q&A
+with tab6:
+    st.subheader("💬 Ask Gemini About the Fall 2025 Admissions Data")
+    st.caption("Direct conversational Q&A grounded in the full 9-campus UC dataset.")
+
+    if not gemini_available:
+        st.warning("⚠️ `GEMINI_API_KEY` is not detected in Streamlit Secrets.")
+        st.info("Add your API key to Streamlit Secrets to enable interactive questions.")
+    else:
+        st.markdown("##### 💡 Suggested Questions to Try:")
+        q_cols = st.columns(3)
+        q1 = q_cols[0].button("Which UC has the lowest CS admission penalty?")
+        q2 = q_cols[1].button("Where can an applicant with a 4.05 GPA be competitive for CS?")
+        q3 = q_cols[2].button("Compare UC Berkeley vs UCLA in CS GPA floors and admit rates.")
+
+        # Question input field
+        user_question = st.text_input(
+            "Enter your question about UC admissions, GPA thresholds, or major selectivity:",
+            value="Which UC has the lowest CS admission penalty?" if q1 else ("Where can an applicant with a 4.05 GPA be competitive for CS?" if q2 else ("Compare UC Berkeley vs UCLA in CS GPA floors and admit rates." if q3 else ""))
+        )
+
+        if st.button("Ask Gemini", type="primary"):
+            if not user_question.strip():
+                st.warning("Please enter or select a question first.")
+            else:
+                with st.spinner("Gemini is querying the Fall 2025 dataset..."):
+                    try:
+                        # Feed the full grounded dataset to Gemini
+                        full_cs_payload = cs_summary[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th', 'cs_gpa_75th', 'cs_iqr', 'cs_applicants', 'cs_admits']].to_dict(orient='records')
+                        
+                        qa_prompt = f"""
+                        You are an expert University of California Admissions Consultant & Data Scientist.
+                        Answer the user's question accurately, concisely, and strictly based on the official Fall 2025 Freshman Computer Science and Disciplinary dataset below:
+
+                        Dataset:
+                        {full_cs_payload}
+
+                        User Question:
+                        "{user_question}"
+
+                        Guidelines:
+                        - Ground all numerical answers (admit rates, penalties, 25th/75th percentile GPAs) directly in the provided dataset.
+                        - Use bold text for key figures and school names.
+                        - If referencing UC Merced, note that it has a 94.33% overall admit rate and its CS data is bundled into general engineering categories.
+                        - Provide a direct, structured answer with bullet points and clear takeaways.
+                        """
+
+                        qa_response = client.models.generate_content(
+                            model='gemini-3.6-flash',
+                            contents=qa_prompt
+                        )
+
+                        st.markdown("#### 📋 Gemini Answer:")
+                        st.markdown(qa_response.text)
+
+                    except Exception as e:
+                        st.error(f"Error querying Gemini: {e}")
