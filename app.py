@@ -259,69 +259,130 @@ with tab4:
     st.plotly_chart(fig_heat, use_container_width=True)
 
 with tab5:
-    st.subheader("🤖 Automated Gemini AI Admissions Briefing")
-    st.caption("Powered by `google-genai` SDK & `gemini-3.6-flash`")
+    st.subheader("🤖 Dynamic Admissions Report Builder & AI Synthesizer")
+    st.caption("Powered by official Fall 2025 UC Disciplinary Data & `gemini-3.6-flash`")
 
-    if not gemini_available:
-        st.warning("⚠️ `GEMINI_API_KEY` is not detected.")
-        st.markdown("""
-        **To enable live AI generation:**
-        1. Open your app settings on [Streamlit Cloud](https://share.streamlit.io).
-        2. Navigate to **Secrets** and add:
-           ```toml
-           GEMINI_API_KEY = "your_google_ai_studio_api_key"
-           ```
-        """)
-        st.info("**Fallback Insight:** In Fall 2025, UC Davis exhibited the steepest CS admit penalty (-24.97%), while UCLA and UC Berkeley established severe GPA floor saturation at or above 4.20.")
-    else:
-        # Professional, report-focused briefing selections
-        briefing_type = st.radio(
-            "Select Institutional Report Type:",
+    # --- 1. Customization Controls ---
+    st.markdown("#### ⚙️ Configure Your Custom Report")
+    
+    rep_col1, rep_col2 = st.columns([1, 1])
+    
+    with rep_col1:
+        # User-selected campuses for the report
+        available_campuses = sorted(cs_summary['campus'].unique())
+        report_campuses = st.multiselect(
+            "1. Select Campuses to Include in Dossier:",
+            available_campuses,
+            default=available_campuses  # Default to all 9
+        )
+        
+    with rep_col2:
+        # Focus dimension
+        report_theme = st.selectbox(
+            "2. Primary Focus Dimension:",
             [
-                "📌 Executive Summary & Disciplinary Disparity Report",
-                "🎯 Applicant Risk Assessment & Strategic Target Portfolio",
-                "📊 GPA Saturation & Quartile Threshold Analysis"
-            ],
-            horizontal=False
+                "Comprehensive (Admit Penalties + GPA Saturation)",
+                "Admission Penalty & Baseline Disparity Focus",
+                "25th Percentile GPA Floor & Quartile Compression Focus"
+            ]
         )
 
-        if st.button("🚀 Generate Formal Admissions Report", type="primary"):
-            with st.spinner("Compiling structured institutional report..."):
-                try:
-                    # Clean data dictionary for grounding
-                    data_payload = cs_summary[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th', 'cs_gpa_75th']].dropna().to_dict(orient='records')
-                    
-                    prompt = f"""
-                    You are a Lead Institutional Research Director for the University of California System.
-                    Generate a formal, publication-grade analytical dossier based on official Fall 2025 Freshman Computer Science Admissions data.
+    custom_inquiry = st.text_input(
+        "3. Specific Inquiry / Research Angle (Optional):",
+        placeholder="e.g., How does UC Davis compare directly to UC San Diego in CS selectivity risk?"
+    )
 
-                    ### Grounding Dataset (Fall 2025):
-                    {data_payload}
+    # Filter data dynamically to the user's customized selection
+    custom_df = cs_summary[cs_summary['campus'].isin(report_campuses)].copy()
+    valid_custom_df = custom_df.dropna(subset=['cs_admit_rate']).sort_values('cs_penalty', ascending=False)
 
-                    ### Report Directive:
-                    Generate the following formal brief: "{briefing_type}".
+    st.divider()
 
-                    ### Formatting & Structural Rules:
-                    - DO NOT output a wall of plain text or conversational prose.
-                    - Format as a high-level executive memorandum with distinct visual hierarchy.
-                    - Structure the report using the following mandatory sections:
-                      1. **Executive Key Takeaways** (3 bullet points with bold metrics and specific delta values).
-                      2. **Comparative Findings Table** (A clean Markdown comparison table summarizing tier categories).
-                      3. **Institutional Insights** (2-3 concise paragraphs evaluating penalty magnitude, GPA compression, or applicant risk).
-                      4. **Strategic Recommendations** (Actionable, itemized takeaways for institutional leaders, counselors, and applicants).
-                    - Explicitly cite and contrast key benchmark campuses:
-                      * **UC Davis:** Highlight the highest net admission penalty (+24.97%).
-                      * **UC Berkeley & UCLA:** Highlight sub-10% selectivity and near-total GPA saturation (floors >= 4.20, IQRs <= 0.09).
-                      * **UC Riverside & UC Santa Cruz:** Highlight high-yield access pathways (floors <= 3.96, admit rates >= 79%).
-                    """
+    # --- 2. Dynamic Visual Dossier (Grounded Charts) ---
+    st.markdown("#### 📊 Report Visual Analytics (Selected Scope)")
+    
+    v_col1, v_col2 = st.columns(2)
+    
+    with v_col1:
+        # Dynamic Penalty Chart for Selected Campuses
+        fig_rep_pen = px.bar(
+            valid_custom_df,
+            x='campus',
+            y='cs_penalty',
+            text=valid_custom_df['cs_penalty'].apply(lambda x: f"{x:.2%}"),
+            color='cs_penalty',
+            color_continuous_scale='Reds',
+            labels={'cs_penalty': 'CS Admit Penalty', 'campus': 'Campus'},
+            title="Admit Penalty by Selected Campus (Overall Rate - CS Rate)"
+        )
+        fig_rep_pen.update_traces(textposition='outside')
+        fig_rep_pen.update_layout(yaxis_tickformat='.1%')
+        st.plotly_chart(fig_rep_pen, use_container_width=True)
 
-                    response = client.models.generate_content(
-                        model='gemini-3.6-flash',
-                        contents=prompt
-                    )
+    with v_col2:
+        # Dynamic GPA Floor Chart for Selected Campuses
+        fig_rep_gpa = px.bar(
+            valid_custom_df,
+            x='campus',
+            y='cs_gpa_25th',
+            text=valid_custom_df['cs_gpa_25th'].apply(lambda x: f"{x:.2f}"),
+            color='cs_gpa_25th',
+            color_continuous_scale='Viridis',
+            labels={'cs_gpa_25th': '25th% GPA Floor', 'campus': 'Campus'},
+            title="25th Percentile Admit GPA Floor by Selected Campus"
+        )
+        fig_rep_gpa.update_traces(textposition='outside')
+        fig_rep_gpa.update_layout(yaxis_range=[3.5, 4.4])
+        st.plotly_chart(fig_rep_gpa, use_container_width=True)
 
-                    st.success("✅ Formal Report Generated Successfully")
-                    st.markdown(response.text)
+    st.divider()
 
-                except Exception as e:
-                    st.error(f"Error communicating with Gemini API: {e}")
+    # --- 3. Grounded Gemini AI Synthesizer ---
+    st.markdown("#### 📝 Executive AI Synthesis")
+    
+    if not gemini_available:
+        st.warning("⚠️ `GEMINI_API_KEY` is not detected in Secrets.")
+        st.info("Configure your API key in Streamlit Secrets to enable live grounded synthesis.")
+    else:
+        if st.button("🚀 Compile Grounded Executive Report", type="primary"):
+            if len(report_campuses) == 0:
+                st.error("Please select at least one campus above to compile the report.")
+            else:
+                with st.spinner("Synthesizing metrics from Fall 2025 dataset..."):
+                    try:
+                        # Extract exact structured payload from the user's filtered slice
+                        data_slice = valid_custom_df[['campus', 'overall_admit_rate', 'cs_admit_rate', 'cs_penalty', 'cs_gpa_25th', 'cs_gpa_75th', 'cs_iqr']].to_dict(orient='records')
+                        
+                        prompt = f"""
+                        You are the Chief Institutional Data Scientist for the University of California System.
+                        Generate a concise, high-impact executive dossier strictly grounded in the official Fall 2025 Freshman Computer Science Admissions data provided below.
+
+                        ### Target Research Question:
+                        "In Fall 2025, how significantly do 25th percentile admit GPA thresholds and admit rate penalties vary for Computer Science across all 9 UC undergraduate campuses compared to overall campus averages?"
+
+                        ### Filtered Dataset Slice:
+                        {data_slice}
+
+                        ### User Configuration:
+                        - Focus Theme: {report_theme}
+                        - Custom Angle / User Query: {custom_inquiry if custom_inquiry else "Standard Disciplinary Variance Analysis"}
+
+                        ### Report Formatting & Constraints:
+                        1. Rely SOLELY on the numerical values present in the data slice above. Do not invent outside numbers.
+                        2. Use clean Markdown headings, bullet points, and small benchmark tables.
+                        3. Structure the output into 3 distinct sections:
+                           - **📌 Executive Data Briefing:** 3 high-level takeaways quantifying specific penalty percentages and GPA floors.
+                           - **📊 Benchmark Metric Table:** A compact Markdown table comparing the selected campuses.
+                           - **🎯 Institutional Takeaway:** 2-3 sentences providing actionable guidance addressing the user's specific inquiry.
+                        """
+
+                        response = client.models.generate_content(
+                            model='gemini-3.6-flash',
+                            contents=prompt
+                        )
+
+                        st.success("✅ Executive Report Compiled")
+                        st.markdown(response.text)
+
+                    except Exception as e:
+                        st.error(f"Error communicating with Gemini API: {e}")
