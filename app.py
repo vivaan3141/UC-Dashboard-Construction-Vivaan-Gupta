@@ -4,7 +4,7 @@ import plotly.express as px
 import os
 
 st.set_page_config(
-    page_title="UC Multi-Campus Disciplinary Comparison (Fall 2025)",
+    page_title="UC Major Selectivity & GPA Explorer (Fall 2025)",
     page_icon="🎓",
     layout="wide"
 )
@@ -61,111 +61,197 @@ def load_data():
 
 df = load_data()
 
-st.title("🎓 Cross-Campus UC Major Selectivity Comparison (Fall 2025)")
-st.markdown("""
-**Direct School-to-School Comparison:** Compare admit rates, applicant volumes, and GPA thresholds across all 9 UC undergraduate campuses simultaneously.
-""")
+# Sidebar: View Mode Switcher
+st.sidebar.title("🛠️ Navigation & Mode")
+view_mode = st.sidebar.radio(
+    "Select Dashboard Mode:",
+    ["📊 Compare All Campuses", "🔍 Single Campus Deep-Dive"]
+)
 
-# High-Level Metrics Row (System Totals)
-total_apps = df['applicants'].sum()
-total_adms = df['admits'].sum()
-sys_rate = total_adms / total_apps if total_apps > 0 else 0
+# Mode 1: Compare All Campuses
+if view_mode == "📊 Compare All Campuses":
+    st.title("🎓 Cross-Campus UC Major Selectivity Comparison (Fall 2025)")
+    st.markdown("""
+    **Multi-School Comparison Mode:** Directly benchmark admission rates, GPA thresholds, and selectivity across all 9 UC undergraduate campuses simultaneously.
+    """)
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total UC Campuses", df['campus'].nunique())
-c2.metric("Total Discipline Categories", df['discipline'].nunique())
-c3.metric("Total Applications Analyzed", f"{int(total_apps):,}")
-c4.metric("Aggregate System Admit Rate", f"{sys_rate:.1%}")
+    # Overview Metrics Row
+    total_apps = df['applicants'].sum()
+    total_adms = df['admits'].sum()
+    sys_rate = total_adms / total_apps if total_apps > 0 else 0
 
-st.divider()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Campuses Compared", df['campus'].nunique())
+    c2.metric("Academic Disciplines", df['discipline'].nunique())
+    c3.metric("Total Applications Analyzed", f"{int(total_apps):,}")
+    c4.metric("Aggregate System Admit Rate", f"{sys_rate:.1%}")
 
-# Core Visual Comparison Tabs
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Major Heatmap (All Schools)", 
-    "📈 Grouped Admit Rate Comparison", 
-    "🎯 GPA Floors (All Campuses)", 
-    "🤖 Gemini Cross-Campus Analyst"
-])
+    st.divider()
 
-with tab1:
-    st.subheader("Admit Rate Heatmap: Campuses vs. Academic Disciplines")
-    st.markdown("Darker blue indicates lower admit rates (higher selectivity).")
-    
-    pivot_rates = df.pivot_table(index='discipline', columns='campus', values='admit_rate')
-    
-    fig_heat = px.imshow(
-        pivot_rates,
-        labels=dict(x="UC Campus", y="Academic Discipline", color="Admit Rate"),
-        x=pivot_rates.columns,
-        y=pivot_rates.index,
-        color_continuous_scale='Blues_r',
-        aspect="auto",
-        text_auto=".1%"
-    )
-    fig_heat.update_layout(height=550)
-    st.plotly_chart(fig_heat, use_container_width=True)
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🗺️ Selectivity Heatmap", 
+        "📊 Major-by-Major Comparison", 
+        "🎯 Cross-Campus GPA Floors", 
+        "🤖 Systemwide AI Briefing"
+    ])
 
-with tab2:
-    st.subheader("Side-by-Side Major Comparison Across Campuses")
-    selected_disc = st.selectbox(
-        "Select a Major to Compare Across All 9 Campuses", 
-        sorted(df['discipline'].unique()),
-        index=sorted(df['discipline'].unique()).index('Computer Science') if 'Computer Science' in df['discipline'].values else 0
-    )
-    
-    comp_df = df[df['discipline'] == selected_disc].sort_values('admit_rate', ascending=True)
-    
-    fig_comp = px.bar(
-        comp_df,
-        x='campus',
-        y='admit_rate',
-        color='admit_rate',
-        color_continuous_scale='Reds_r',
-        text_auto='.1%',
-        labels={'admit_rate': 'Admit Rate', 'campus': 'UC Campus'},
-        title=f"Admit Rate for {selected_disc} Across All UC Campuses"
-    )
-    st.plotly_chart(fig_comp, use_container_width=True)
+    with tab1:
+        st.subheader("Admit Rate Heatmap: All Campuses vs. All Disciplines")
+        pivot_rates = df.pivot_table(index='discipline', columns='campus', values='admit_rate')
+        
+        fig_heat = px.imshow(
+            pivot_rates,
+            labels=dict(x="UC Campus", y="Academic Discipline", color="Admit Rate"),
+            x=pivot_rates.columns,
+            y=pivot_rates.index,
+            color_continuous_scale='Blues_r',
+            aspect="auto",
+            text_auto=".1%"
+        )
+        fig_heat.update_layout(height=550)
+        st.plotly_chart(fig_heat, use_container_width=True)
 
-with tab3:
-    st.subheader("25th Percentile GPA Floor Comparison (All Schools)")
-    
-    fig_scatter = px.scatter(
-        df,
-        x='gpa_25th',
-        y='admit_rate',
-        color='campus',
-        hover_data=['discipline', 'applicants', 'gpa_75th'],
-        labels={
-            'gpa_25th': '25th Percentile Admit GPA Floor', 
-            'admit_rate': 'Admit Rate',
-            'campus': 'Campus'
-        },
-        title="Admit GPA Floor vs. Admit Rate (Hover to view major details)"
-    )
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    with tab2:
+        st.subheader("Compare a Specific Major Across Every UC Campus")
+        selected_disc = st.selectbox(
+            "Select an Academic Discipline to Compare:", 
+            sorted(df['discipline'].unique()),
+            index=sorted(df['discipline'].unique()).index('Computer Science') if 'Computer Science' in df['discipline'].values else 0
+        )
+        
+        comp_df = df[df['discipline'] == selected_disc].sort_values('admit_rate', ascending=True)
+        fig_comp = px.bar(
+            comp_df,
+            x='campus',
+            y='admit_rate',
+            color='admit_rate',
+            color_continuous_scale='Reds_r',
+            text_auto='.1%',
+            labels={'admit_rate': 'Admit Rate', 'campus': 'UC Campus'},
+            title=f"Admit Rate for '{selected_disc}' Across All 9 Campuses"
+        )
+        st.plotly_chart(fig_comp, use_container_width=True)
 
-with tab4:
-    st.subheader("Automated Cross-Campus AI Analysis")
-    if not gemini_available:
-        st.warning("Set up `GEMINI_API_KEY` in Streamlit Secrets to enable live AI analysis.")
-        st.info("Systemwide Comparison: UC Berkeley and UCLA show the steepest selectivity barriers across all majors (admit rates < 15%), whereas UC Riverside, UC Santa Cruz, and UC Merced provide wide access routes with GPA floors below 4.00.")
-    else:
-        if st.button("Run Cross-Campus Comparison Analysis"):
-            with st.spinner("Analyzing cross-campus patterns..."):
-                summary_data = df.groupby(['campus', 'discipline'])[['admit_rate', 'gpa_25th']].mean().reset_index().to_dict(orient='records')
-                prompt = f"""
-                You are a senior admissions analyst for the University of California system.
-                Analyze this complete Fall 2025 dataset across all 9 UC campuses and disciplines:
-                {summary_data[:30]}
+    with tab3:
+        st.subheader("25th Percentile GPA Floors vs. Admit Rate (All Campuses & Majors)")
+        fig_scatter = px.scatter(
+            df,
+            x='gpa_25th',
+            y='admit_rate',
+            color='campus',
+            hover_data=['discipline', 'applicants', 'gpa_75th'],
+            labels={
+                'gpa_25th': '25th Percentile Admit GPA Floor', 
+                'admit_rate': 'Admit Rate',
+                'campus': 'Campus'
+            },
+            title="Admit GPA Floor vs. Admit Rate (Hover for Discipline Details)"
+        )
+        st.plotly_chart(fig_scatter, use_container_width=True)
 
-                Provide 3 clear, comparative findings:
-                1. How selectivity diverges between top-tier (UCB/UCLA), mid-tier (UCSD/UCI/UCD/UCSB), and access-focused campuses (UCR/UCSC/UCM).
-                2. Which academic disciplines show the widest admit rate variance across campuses.
-                3. Key takeaways for students deciding where to apply for competitive majors.
-                """
-                resp = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
-                st.markdown(resp.text)
+    with tab4:
+        st.subheader("Automated Cross-Campus AI Analysis")
+        if not gemini_available:
+            st.warning("Configure `GEMINI_API_KEY` in Streamlit Secrets to enable live Gemini insights.")
+            st.info("Cross-Campus Insight: Top-tier campuses (UCB, UCLA) have near-universal GPA floors above 4.20, while access campuses (UCR, UCSC, UCM) provide significant acceptance margins for STEM applicants.")
+        else:
+            if st.button("Generate Systemwide AI Report"):
+                with st.spinner("Analyzing systemwide metrics..."):
+                    summary_data = df.groupby(['campus', 'discipline'])[['admit_rate', 'gpa_25th']].mean().reset_index().to_dict(orient='records')
+                    prompt = f"""
+                    You are a senior admissions analyst for the University of California.
+                    Analyze this Fall 2025 dataset across all 9 UC campuses:
+                    {summary_data[:30]}
+
+                    Provide 3 concise takeaways:
+                    1. Selectivity differences across top, mid, and access UC campuses.
+                    2. Majors showing the highest variance across schools.
+                    3. Actionable guidance for prospective applicants.
+                    """
+                    resp = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt
+                    )
+                    st.markdown(resp.text)
+
+# Mode 2: Single Campus Deep-Dive
+else:
+    campuses = sorted(df['campus'].unique())
+    selected_campus = st.sidebar.selectbox("Choose a UC Campus to Explore:", campuses, index=0)
+
+    st.title(f"🔍 Deep-Dive Analysis: {selected_campus} (Fall 2025)")
+    st.markdown(f"Detailed view of **all academic disciplines** and GPA distributions for **{selected_campus}**.")
+
+    camp_data = df[df['campus'] == selected_campus].sort_values('admit_rate', ascending=True)
+    overall_camp_rate = camp_data['admits'].sum() / camp_data['applicants'].sum() if camp_data['applicants'].sum() > 0 else 0
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Selected Campus", selected_campus)
+    col2.metric("Overall Campus Admit Rate", f"{overall_camp_rate:.1%}")
+    col3.metric("Total Applicants", f"{int(camp_data['applicants'].sum()):,}")
+    col4.metric("Disciplines Evaluated", len(camp_data))
+
+    st.divider()
+
+    tab1, tab2, tab3 = st.tabs([
+        "📊 Major Selectivity vs. Campus Baseline", 
+        "🎯 GPA Distribution by Major", 
+        "🤖 Campus-Specific AI Analyst"
+    ])
+
+    with tab1:
+        st.subheader(f"Admit Rates Across ALL Disciplines: {selected_campus}")
+        fig_bar = px.bar(
+            camp_data,
+            x='admit_rate',
+            y='discipline',
+            orientation='h',
+            color='admit_rate',
+            color_continuous_scale='Blues_r',
+            text_auto='.1%',
+            labels={'admit_rate': 'Admit Rate', 'discipline': 'Academic Discipline'},
+            title=f"All Disciplines Ranked by Selectivity ({selected_campus})"
+        )
+        fig_bar.add_vline(x=overall_camp_rate, line_dash="dash", line_color="red", annotation_text="Campus Overall Average")
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    with tab2:
+        st.subheader(f"Admit GPA Floors (25th Percentile) for {selected_campus}")
+        fig_gpa = px.scatter(
+            camp_data,
+            x='gpa_25th',
+            y='discipline',
+            size='applicants',
+            color='admit_rate',
+            color_continuous_scale='Viridis',
+            hover_data=['gpa_75th', 'iqr_gpa'],
+            labels={'gpa_25th': '25th Percentile Admit GPA Floor', 'discipline': 'Discipline'},
+            title=f"GPA Floor vs. Applicant Volume ({selected_campus})"
+        )
+        st.plotly_chart(fig_gpa, use_container_width=True)
+
+    with tab3:
+        st.subheader(f"AI Admissions Briefing for {selected_campus}")
+        if not gemini_available:
+            st.warning("Configure `GEMINI_API_KEY` in Streamlit Secrets to enable live AI analysis.")
+            st.info(f"Summary: At {selected_campus}, high-demand disciplines experience notable admission penalties relative to the campus baseline of {overall_camp_rate:.1%}.")
+        else:
+            if st.button(f"Generate {selected_campus} Major Analysis"):
+                with st.spinner(f"Analyzing {selected_campus}..."):
+                    sample_rows = camp_data[['discipline', 'admit_rate', 'gpa_25th', 'gpa_75th']].to_dict(orient='records')
+                    prompt = f"""
+                    You are an admissions advisor.
+                    Analyze the admissions metrics for {selected_campus} (Fall 2025):
+                    Overall Campus Admit Rate: {overall_camp_rate:.1%}
+                    Discipline Data: {sample_rows}
+
+                    Provide 3 concise takeaways:
+                    1. The disciplines with the steepest admission penalty.
+                    2. Disciplines with higher acceptance opportunities.
+                    3. GPA threshold takeaways for applicants.
+                    """
+                    resp = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=prompt
+                    )
+                    st.markdown(resp.text)
